@@ -5,8 +5,10 @@ import (
 	"github.com/astaxie/beego"
 	"nginx-gray-go/utils"
 	"nginx-gray-go/vo"
+	"sync"
 )
 
+var rwLock = new(sync.RWMutex)
 var serviceMap = make(map[string]vo.RegisterRequest)
 
 type RegisterController struct {
@@ -22,13 +24,14 @@ func (this *RegisterController) Register() {
 	//if err != nil {
 	//	panic("请求参数缺失")
 	//}
-
+	rwLock.Lock()
 	serviceMap[registerRequest.Id] = registerRequest
-
+	rwLock.Unlock()
 }
 
 func (this *RegisterController) AgentList() {
 
+	rwLock.RLock()
 	resMap := make(map[string]vo.RegisterResponse)
 
 	for key, value := range serviceMap {
@@ -42,7 +45,7 @@ func (this *RegisterController) AgentList() {
 
 		resMap[key] = regisResp
 	}
-
+	rwLock.RUnlock()
 	this.Data["json"] = resMap
 	this.ServeJSON()
 }
@@ -54,6 +57,7 @@ func (this *RegisterController) CatalogList() {
 	var list [1]string
 	list[0] = "secure=false"
 
+	rwLock.RLock()
 	for key, value := range serviceMap {
 		key = key
 		resMap[value.Name] = list
@@ -62,6 +66,7 @@ func (this *RegisterController) CatalogList() {
 	var consul [0]interface{}
 	resMap["consul"] = consul
 
+	rwLock.RUnlock()
 	this.Data["json"] = resMap
 
 	this.ServeJSON()
@@ -91,6 +96,7 @@ func (this *RegisterController) HealthService() {
 	taggedAddresses["wan"] = "127.0.0.1"
 	node.TaggedAddresses = taggedAddresses
 
+	rwLock.RLock()
 	var regisRequest vo.RegisterRequest
 	for key, value := range serviceMap {
 		key = key
@@ -124,6 +130,7 @@ func (this *RegisterController) HealthService() {
 
 	var respList [1]interface{}
 	respList[0] = response
+	rwLock.RUnlock()
 	this.Data["json"] = respList
 	this.ServeJSON()
 }
